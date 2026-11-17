@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Listrik Kos</title>
+<style>
+  :root { --bg:#f6f5f1; --card:#ffffff; --text:#1c1c1a; --muted:#6b6a64; --line:#e3e1d9; --accent:#2a78d6; --accent-soft:#e6f1fb; --warn:#a32d2d; --warn-soft:#fcebeb; --ok:#27500a; --ok-soft:#eaf3de; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161614; --card:#201f1d; --text:#f0efec; --muted:#a7a59c; --line:#34332f; --accent:#5a9be6; --accent-soft:#1d2c3f; --warn:#f09595; --warn-soft:#3a1f1f; --ok:#97c459; --ok-soft:#1f2d14; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+  .wrap { max-width:720px; margin:0 auto; padding:16px; }
+  h1 { font-size:22px; font-weight:500; margin:8px 0 2px; }
+  h2 { font-size:16px; font-weight:500; margin:0 0 12px; }
+  .sub { color:var(--muted); font-size:14px; margin:0 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .stats { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .stat .l { font-size:12px; color:var(--muted); }
+  .stat .v { font-size:22px; font-weight:500; margin-top:2px; }
+  .stat .s { font-size:12px; color:var(--muted); }
+  .stat.warn { background:var(--warn-soft); border-color:var(--warn); }
+  .stat.warn .v, .stat.warn .s { color:var(--warn); }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input { width:100%; padding:10px; font-size:16px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); }
+  input:focus { outline:2px solid var(--accent); outline-offset:0; }
+  .row { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+  button { font-size:15px; padding:10px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; width:100%; margin-top:14px; font-weight:500; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .seg button { padding:6px 12px; font-size:13px; }
+  .seg button.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .chartbox { position:relative; width:100%; height:240px; margin-bottom:18px; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+  .msg { position:sticky; top:8px; z-index:5; padding:10px 12px; border-radius:8px; margin-bottom:12px; font-size:14px; display:none; }
+  .msg.ok { display:block; background:var(--ok-soft); color:var(--ok); }
+  .msg.err { display:block; background:var(--warn-soft); color:var(--warn); }
+  .item { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); font-size:14px; }
+  .item:first-child { border-top:0; }
+  .item .main { min-width:0; }
+  .item .meta { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+  .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:99px; margin-right:6px; }
+  .tag.r { background:var(--accent-soft); color:var(--accent); }
+  .tag.t { background:var(--ok-soft); color:var(--ok); }
+  .del { padding:4px 10px; font-size:12px; color:var(--warn); flex-shrink:0; }
+  .empty { color:var(--muted); font-size:14px; padding:12px 0; }
+  .note { font-size:13px; color:var(--muted); }
+  [hidden] { display:none !important; }
+  .authrow { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin-top:14px; }
+  .authrow button.primary { margin-top:0; }
+  .logout { width:100%; margin-bottom:24px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Listrik Kos</h1>
+  <p class="sub">Catat sisa kWh dan topup token, lihat statistik pemakaianmu.</p>
+  <div id="msg" class="msg" role="status"></div>
+
+  <div id="auth" class="card" hidden>
+    <h2>Masuk</h2>
+    <form id="fAuth">
+      <label for="aEmail">Email</label>
+      <input type="email" id="aEmail" autocomplete="email" required>
+      <label for="aPass">Password (minimal 6 karakter)</label>
+      <input type="password" id="aPass" autocomplete="current-password" minlength="6" required>
+      <div class="authrow">
+        <button class="primary" type="submit" id="btnLogin">Masuk</button>
+        <button type="button" id="btnSignup">Daftar</button>
+      </div>
+      <div class="hint">Daftar hanya perlu sekali. Akun pertama yang terdaftar menjadi pemilik data.</div>
+    </form>
+  </div>
+
+  <div id="app" hidden>
+  <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <h2>Catat sisa kWh meteran</h2>
+    <form id="fReading">
+      <div class="row">
+        <div><label for="rTime">Waktu</label><input type="datetime-local" id="rTime" required></div>
+        <div><label for="rKwh">Sisa kWh</label><input type="number" id="rKwh" step="0.01" min="0" inputmode="decimal" placeholder="mis. 34.19" required></div>
+      </div>
+      <label for="rNote">Catatan (opsional)</label>
+      <input type="text" id="rNote" maxlength="120" placeholder="mis. AC nyala semalaman">
+      <button class="primary" type="submit">Simpan sisa kWh</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Catat topup token</h2>
+    <form id="fTopup">
+      <div class="row">
+        <div><label for="tTime">Waktu</label><input type="datetime-local" id="tTime" required></div>
+        <div><label for="tRp">Nominal (Rp)</label><input type="number" id="tRp" step="1000" min="1000" inputmode="numeric" placeholder="200000" required></div>
+      </div>
+      <label for="tKwh">kWh yang didapat</label>
+      <input type="number" id="tKwh" step="0.01" min="0.01" inputmode="decimal" placeholder="144.5" required>
+      <div class="hint" id="tHint">Harga per kWh akan dihitung otomatis.</div>
+      <label for="tNote">Catatan (opsional)</label>
+      <input type="text" id="tNote" maxlength="120">
+      <button class="primary" type="submit">Simpan topup</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Grafik</h2>
+    <div class="seg" id="rangeSeg">
+      <button data-v="7">7 hari</button>
+      <button data-v="30">30 hari</button>
+      <button data-v="all" class="on">Semua</button>
+    </div>
+    <div class="note" style="margin-bottom:4px">Sisa kWh di meteran</div>
+    <div class="chartbox"><canvas id="c1" role="img" aria-label="Grafik sisa kWh di meteran dari waktu ke waktu"></canvas></div>
+    <div class="seg" id="unitSeg">
+      <button data-v="kwh" class="on">kWh</button>
+      <button data-v="rp">Rupiah</button>
+    </div>
+    <div class="note" style="margin-bottom:4px">Pemakaian per hari <span id="avgLegend"></span></div>
+    <div class="chartbox"><canvas id="c2" role="img" aria-label="Grafik batang pemakaian listrik per hari"></canvas></div>
+    <div class="hint">Hanya hari yang terisi penuh oleh dua catatan berurutan yang ditampilkan. Pemakaian dihitung dari sisa sebelumnya + topup - sisa sekarang.</div>
+  </div>
+
+  <div class="card">
+    <h2>Riwayat</h2>
+    <div id="history"></div>
+  </div>
+
+  <button type="button" class="logout" id="btnLogout">Keluar</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="config.js"></script>
+<script>
+const cfg = window.APP_CONFIG;
+const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY);
+const TZ = 7 * 3600 * 1000, DAY = 86400000;
+let readings = [], topups = [], charts = {}, range = 'all', unit = 'kwh';
+
+const $ = id => document.getElementById(id);
+const nf = (n, d = 1) => (n == null || isNaN(n)) ? '-' : n.toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
+const rp = n => (n == null || isNaN(n)) ? '-' : 'Rp' + Math.round(n).toLocaleString('id-ID');
+const p2 = n => String(n).padStart(2, '0');
+
+function toInput(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+function dayKey(ms) { return new Date(ms + TZ).toISOString().slice(0, 10); }
+function dayStart(key) { return Date.parse(key + 'T00:00:00Z') - TZ; }
+function fmtDate(ms) { const d = new Date(ms + TZ); return p2(d.getUTCDate()) + '/' + p2(d.getUTCMonth() + 1); }
+function fmtDT(ms) { const d = new Date(ms + TZ); return fmtDate(ms) + ' ' + p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()); }
+
+let msgTimer;
+function showMsg(text, isErr) {
+  const m = $('msg');
+  m.textContent = text;
+  m.className = 'msg ' + (isErr ? 'err' : 'ok');
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => { m.className = 'msg'; }, isErr ? 8000 : 3000);
+}
+
+async function load() {
+  const [r, t] = await Promise.all([
+    sb.from('readings').select('*').order('read_at'),
+    sb.from('topups').select('*').order('topup_at')
+  ]);
+  if (r.error || t.error) { showMsg('Gagal memuat data: ' + (r.error || t.error).message, true); return; }
+  readings = r.data.map(x => ({ id: x.id, t: Date.parse(x.read_at), kwh: Number(x.kwh_remaining), note: x.note }));
+  topups = t.data.map(x => ({ id: x.id, t: Date.parse(x.topup_at), rp: x.amount_rp, kwh: Number(x.kwh), note: x.note }));
+  render();
+}
+
+function price() {
+  const k = topups.reduce((s, x) => s + x.kwh, 0), r = topups.reduce((s, x) => s + x.rp, 0);
+  return k > 0 ? r / k : cfg.DEFAULT_RP_PER_KWH;
+}
+
+function compute() {
+  const periods = [];
+  for (let i = 1; i < readings.length; i++) {
+    const a = readings[i - 1], b = readings[i];
+    const added = topups.filter(x => x.t > a.t && x.t <= b.t).reduce((s, x) => s + x.kwh, 0);
+    const used = a.kwh + added - b.kwh;
+    const days = (b.t - a.t) / DAY;
+    periods.push({ a: a.t, b: b.t, used, days, rate: days > 0 ? used / days : 0, valid: used >= 0 && days > 0 });
+  }
+  const valid = periods.filter(p => p.valid);
+  const totalUsed = valid.reduce((s, p) => s + p.used, 0);
+  const totalDays = valid.reduce((s, p) => s + p.days, 0);
+  const avg = totalDays > 0 ? totalUsed / totalDays : null;
+  const cov = {}, use = {};
+  valid.forEach(p => {
+    let t = p.a;
+    while (t < p.b) {
+      const k = dayKey(t);
+      const end = Math.min(p.b, dayStart(k) + DAY);
+      const seg = end - t;
+      cov[k] = (cov[k] || 0) + seg;
+      use[k] = (use[k] || 0) + p.rate * seg / DAY;
+      t = end;
+    }
+  });
+  const daily = Object.keys(cov).sort().filter(k => cov[k] >= DAY * 0.95).map(k => ({ key: k, kwh: use[k] }));
+  return { avg, daily, invalid: periods.length - valid.length };
+}
+
+function statCard(label, value, sub, warn) {
+  const d = document.createElement('div');
+  d.className = 'stat' + (warn ? ' warn' : '');
+  const l = document.createElement('div'); l.className = 'l'; l.textContent = label;
+  const v = document.createElement('div'); v.className = 'v'; v.textContent = value;
+  const s = document.createElement('div'); s.className = 's'; s.textContent = sub || '';
+  d.append(l, v, s);
+  return d;
+}
+
+function renderStats(c) {
+  const box = $('stats');
+  box.replaceChildren();
+  const pr = price();
+  const last7 = c.daily.slice(-7);
+  const avg7 = last7.length ? last7.reduce((s, x) => s + x.kwh, 0) / last7.length : null;
+  box.append(statCard('Rata-rata per hari', c.avg == null ? '-' : nf(c.avg) + ' kWh', c.avg == null ? 'Butuh minimal 2 catatan' : rp(c.avg * pr) + ' per hari'));
+  box.append(statCard('7 hari terakhir', avg7 == null ? '-' : nf(avg7) + ' kWh', avg7 == null ? 'Belum ada hari penuh' : 'rata-rata per hari'));
+  box.append(statCard('Perkiraan per bulan', c.avg == null ? '-' : rp(c.avg * 30 * pr), c.avg == null ? '' : nf(c.avg * 30, 0) + ' kWh, Rp' + Math.round(pr).toLocaleString('id-ID') + '/kWh'));
+  const last = readings[readings.length - 1];
+  if (!last) {
+    box.append(statCard('Sisa token', '-', 'Belum ada catatan'));
+  } else {
+    const rate = avg7 != null ? avg7 : c.avg;
+    const added = topups.filter(x => x.t > last.t).reduce((s, x) => s + x.kwh, 0);
+    if (rate && rate > 0) {
+      const now = Date.now();
+      const remain = last.kwh + added - rate * (now - last.t) / DAY;
+      const daysLeft = remain / rate;
+      if (remain <= 0) {
+        box.append(statCard('Sisa token (perkiraan)', 'Mungkin habis', 'Cek meteran dan catat', true));
+      } else {
+        const end = now + daysLeft * DAY;
+        box.append(statCard('Sisa token (perkiraan)', nf(remain) + ' kWh', 'habis ±' + fmtDate(end) + ' (' + nf(daysLeft, 0) + ' hari lagi)', daysLeft < 4));
+      }
+    } else {
+      box.append(statCard('Sisa token (catatan terakhir)', nf(last.kwh) + ' kWh', fmtDT(last.t)));
+    }
+  }
+}
+
+function colors() {
+  const cs = getComputedStyle(document.body);
+  return { muted: cs.getPropertyValue('--muted').trim() || '#888', line: cs.getPropertyValue('--line').trim() || '#ddd', accent: cs.getPropertyValue('--accent').trim() || '#2a78d6' };
+}
+
+function renderCharts(c) {
+  const col = colors();
+  const cutoff = range === 'all' ? 0 : Date.now() - Number(range) * DAY;
+  const pts = readings.filter(r => r.t >= cutoff).map(r => ({ x: r.t, y: r.kwh }));
+  if (charts.c1) charts.c1.destroy();
+  charts.c1 = new Chart($('c1'), {
+    type: 'scatter',
+    data: { datasets: [{ data: pts, showLine: true, borderColor: col.accent, backgroundColor: col.accent, borderWidth: 2, pointRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => fmtDT(i[0].parsed.x), label: i => nf(i.parsed.y, 2) + ' kWh' } } },
+      scales: {
+        x: { ticks: { color: col.muted, maxTicksLimit: 6, callback: v => fmtDate(v) }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: col.muted }, grid: { color: col.line } }
+      }
+    }
+  });
+
+  const pr = price();
+  const mul = unit === 'rp' ? pr : 1;
+  const cutKey = cutoff ? dayKey(cutoff) : '';
+  const d = c.daily.filter(x => x.key >= cutKey);
+  const labels = d.map(x => x.key.slice(8, 10) + '/' + x.key.slice(5, 7));
+  const vals = d.map(x => Math.round(x.kwh * mul * 100) / 100);
+  const avgLine = c.avg == null ? [] : d.map(() => Math.round(c.avg * mul * 100) / 100);
+  $('avgLegend').textContent = c.avg == null ? '' : '(garis putus-putus = rata-rata ' + (unit === 'rp' ? rp(c.avg * pr) : nf(c.avg) + ' kWh') + ')';
+  if (charts.c2) charts.c2.destroy();
+  charts.c2 = new Chart($('c2'), {
+    data: {
+      labels,
+      datasets: [
+        { type: 'bar', data: vals, backgroundColor: col.accent, borderRadius: 4, maxBarThickness: 24 },
+        { type: 'line', data: avgLine, borderColor: '#eb6834', borderDash: [6, 4], borderWidth: 2, pointRadius: 0 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => unit === 'rp' ? rp(i.parsed.y) : nf(i.parsed.y, 2) + ' kWh' } } },
+      scales: {
+        x: { ticks: { color: col.muted, maxTicksLimit: 8 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: col.muted }, grid: { color: col.line } }
+      }
+    }
+  });
+}
+
+function renderHistory() {
+  const box = $('history');
+  box.replaceChildren();
+  const items = [
+    ...readings.map(r => ({ type: 'r', t: r.t, id: r.id, note: r.note, text: 'Sisa ' + nf(r.kwh, 2) + ' kWh' })),
+    ...topups.map(x => ({ type: 't', t: x.t, id: x.id, note: x.note, text: 'Topup ' + rp(x.rp) + ' = ' + nf(x.kwh, 2) + ' kWh' }))
+  ].sort((a, b) => b.t - a.t);
+  if (!items.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Belum ada data.'; box.append(e); return; }
+  items.forEach(it => {
+    const row = document.createElement('div'); row.className = 'item';
+    const main = document.createElement('div'); main.className = 'main';
+    const tag = document.createElement('span'); tag.className = 'tag ' + it.type; tag.textContent = it.type === 'r' ? 'Sisa' : 'Topup';
+    const tx = document.createElement('span'); tx.textContent = it.text;
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = fmtDT(it.t) + (it.note ? ' · ' + it.note : '');
+    main.append(tag, tx, meta);
+    const del = document.createElement('button'); del.className = 'del'; del.textContent = 'Hapus';
+    del.addEventListener('click', () => removeItem(it));
+    row.append(main, del);
+    box.append(row);
+  });
+}
+
+function render() {
+  const c = compute();
+  renderStats(c);
+  renderCharts(c);
+  renderHistory();
+  if (c.invalid > 0) showMsg(c.invalid + ' periode tidak dihitung karena sisa kWh naik tanpa topup. Cek riwayat.', true);
+}
+
+async function removeItem(it) {
+  if (!confirm('Hapus catatan ini?')) return;
+  const { error } = await sb.from(it.type === 'r' ? 'readings' : 'topups').delete().eq('id', it.id);
+  if (error) { showMsg('Gagal menghapus: ' + error.message, true); return; }
+  showMsg('Catatan dihapus.');
+  load();
+}
+
+$('fReading').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = e.submitter || e.target.querySelector('button'); btn.disabled = true;
+  const t = new Date($('rTime').value).getTime();
+  const kwh = Number($('rKwh').value);
+  if (isNaN(t) || isNaN(kwh) || kwh < 0) { showMsg('Isi waktu dan sisa kWh dengan benar.', true); btn.disabled = false; return; }
+  const prev = readings.filter(r => r.t < t).slice(-1)[0];
+  if (prev && kwh > prev.kwh && !topups.some(x => x.t > prev.t && x.t <= t)) {
+    if (!confirm('Sisa kWh lebih besar dari catatan sebelumnya (' + nf(prev.kwh, 2) + ') dan belum ada topup di antaranya. Tetap simpan?')) { btn.disabled = false; return; }
+  }
+  const { error } = await sb.from('readings').insert({ read_at: new Date(t).toISOString(), kwh_remaining: kwh, note: $('rNote').value.trim() || null });
+  btn.disabled = false;
+  if (error) { showMsg('Gagal menyimpan: ' + error.message, true); return; }
+  showMsg('Sisa kWh tersimpan.');
+  $('rKwh').value = ''; $('rNote').value = ''; $('rTime').value = toInput(new Date());
+  load();
+});
+
+$('fTopup').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = e.submitter || e.target.querySelector('button'); btn.disabled = true;
+  const t = new Date($('tTime').value).getTime();
+  const amount = Math.round(Number($('tRp').value));
+  const kwh = Number($('tKwh').value);
+  if (isNaN(t) || !(amount > 0) || !(kwh > 0)) { showMsg('Isi waktu, nominal, dan kWh dengan benar.', true); btn.disabled = false; return; }
+  const { error } = await sb.from('topups').insert({ topup_at: new Date(t).toISOString(), amount_rp: amount, kwh: kwh, note: $('tNote').value.trim() || null });
+  btn.disabled = false;
+  if (error) { showMsg('Gagal menyimpan: ' + error.message, true); return; }
+  showMsg('Topup tersimpan. Jangan lupa catat sisa kWh setelah topup.');
+  $('tRp').value = ''; $('tKwh').value = ''; $('tNote').value = ''; $('tTime').value = toInput(new Date()); $('tHint').textContent = 'Harga per kWh akan dihitung otomatis.';
+  load();
+});
+
+function updateHint() {
+  const a = Number($('tRp').value), k = Number($('tKwh').value);
+  $('tHint').textContent = (a > 0 && k > 0) ? 'Harga efektif: Rp' + Math.round(a / k).toLocaleString('id-ID') + ' per kWh' : 'Harga per kWh akan dihitung otomatis.';
+}
+$('tRp').addEventListener('input', updateHint);
+$('tKwh').addEventListener('input', updateHint);
+
+$('rangeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  range = b.dataset.v;
+  [...$('rangeSeg').children].forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+$('unitSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  unit = b.dataset.v;
+  [...$('unitSeg').children].forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+
+$('rTime').value = toInput(new Date());
+$('tTime').value = toInput(new Date());
+
+let shownFor = null;
+
+function showAuth() {
+  shownFor = null;
+  readings = []; topups = [];
+  $('app').hidden = true;
+  $('auth').hidden = false;
+}
+
+async function showApp(session) {
+  if (shownFor === session.user.id) return;
+  shownFor = session.user.id;
+  const { data, error } = await sb.from('app_owner').select('user_id').limit(1);
+  if (error || !data || !data.length) {
+    shownFor = null;
+    showMsg('Akun ini tidak punya akses ke data. Hanya akun pertama yang terdaftar yang menjadi pemilik.', true);
+    await sb.auth.signOut();
+    return;
+  }
+  $('auth').hidden = true;
+  $('app').hidden = false;
+  load();
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  setTimeout(() => { session ? showApp(session) : showAuth(); }, 0);
+});
+sb.auth.getSession().then(({ data }) => {
+  if (data.session) showApp(data.session); else showAuth();
+});
+
+$('fAuth').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('btnLogin'); btn.disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email: $('aEmail').value.trim(), password: $('aPass').value });
+  btn.disabled = false;
+  if (error) showMsg(error.message === 'Invalid login credentials' ? 'Email atau password salah. Kalau belum punya akun, tekan Daftar.' : 'Gagal masuk: ' + error.message, true);
+});
+
+$('btnSignup').addEventListener('click', async () => {
+  const email = $('aEmail').value.trim(), password = $('aPass').value;
+  if (!email || password.length < 6) { showMsg('Isi email dan password (minimal 6 karakter).', true); return; }
+  const btn = $('btnSignup'); btn.disabled = true;
+  const { data, error } = await sb.auth.signUp({ email, password });
+  btn.disabled = false;
+  if (error) { showMsg('Gagal daftar: ' + error.message, true); return; }
+  if (!data.session) showMsg('Terdaftar. Buka email untuk konfirmasi, lalu kembali ke sini dan tekan Masuk.');
+});
+
+$('btnLogout').addEventListener('click', () => { sb.auth.signOut(); });
+</script>
+</body>
+</html>

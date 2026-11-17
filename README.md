@@ -10,7 +10,7 @@ Webapp statis untuk memantau pemakaian listrik token kos. Frontend HTML + JS mur
 ## Database (sudah dibuat)
 - Project Supabase: `listrik-kos` (ref `lsaoaajbuwkfnvyzynew`, Singapura)
 - Tabel `readings` (read_at, kwh_remaining, note) dan `topups` (topup_at, amount_rp, kwh, note)
-- Sudah terisi 7 catatan meteran 6-16 Oktober
+- Sudah terisi 7 catatan meteran 6-16 November
 - RLS aktif. Hanya akun pemilik (akun pertama yang mendaftar, tercatat di tabel `app_owner`) yang bisa baca, tulis, dan hapus data. Pengunjung tanpa login tidak bisa melihat apa pun.
 
 ## Deploy lewat GitHub + Vercel
@@ -47,4 +47,4 @@ Opsional: matikan **Confirm email** di pengaturan yang sama kalau email konfirma
 - Lupa password: reset lewat dashboard Supabase (Authentication > Users).
 
 ## Catatan
-- Jam 6-16 Oktober adalah perkiraan (pagi 07.00, siang 13.00, malam 21.00). Edit dengan menghapus dan mencatat ulang kalau mau lebih akurat.
+- Jam 6-16 November adalah perkiraan (pagi 07.00, siang 13.00, malam 21.00). Edit dengan menghapus dan mencatat ulang kalau mau lebih akurat.
